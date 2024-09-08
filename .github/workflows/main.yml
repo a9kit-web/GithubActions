@@ -23,15 +23,7 @@ jobs:
     - name: Launch EC2 instance (Ubuntu)
       id: launch_instance
       run: |
-        INSTANCE_ID=$(aws ec2 run-instances \
-          --image-id ami-0abcdef1234567890 \  # Update with the correct Ubuntu AMI ID
-          --instance-type t2.micro \
-          --key-name MyKeyPair \  # Replace with your key pair
-          --security-group-ids sg-0abc1234567890def \  # Replace with your security group ID
-          --subnet-id subnet-0abcdef1234567890 \
-          --associate-public-ip-address \
-          --query 'Instances[0].InstanceId' \
-          --output text)
+        INSTANCE_ID=$(aws ec2 run-instances --image-id ami-0522ab6e1ddcc7055 --instance-type t2.micro --key-name mykeypair --security-group-ids sg-0ceb88b1df74bd117 --subnet-id subnet-03f98bd07a433d75c --associate-public-ip-address --query 'Instances[0].InstanceId' --output text)
         
         echo "Instance ID: $INSTANCE_ID"
         echo "::set-output name=instance_id::$INSTANCE_ID"
