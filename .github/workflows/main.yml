@@ -3,7 +3,7 @@ name: AWS EC2 Instance Management with Existing Elastic IP, Docker, Nginx, Certb
 on:
   push:
     branches:
-      - none
+      - main
 
 jobs:
   create-and-run-ec2:
@@ -24,11 +24,11 @@ jobs:
       id: launch_instance
       run: |
         INSTANCE_ID=$(aws ec2 run-instances \
-          --image-id ami-0abcdef1234567890 \  # Update with the correct Ubuntu AMI ID
+          --image-id ami-0522ab6e1ddcc7055 \  # Update with the correct Ubuntu AMI ID
           --instance-type t2.micro \
-          --key-name MyKeyPair \  # Replace with your key pair
-          --security-group-ids sg-0abc1234567890def \  # Replace with your security group ID
-          --subnet-id subnet-0abcdef1234567890 \
+          --key-name mykeypair \  # Replace with your key pair
+          --security-group-ids sg-0ceb88b1df74bd117 \  # Replace with your security group ID
+          --subnet-id subnet-03f98bd07a433d75c \
           --associate-public-ip-address \
           --query 'Instances[0].InstanceId' \
           --output text)
@@ -44,7 +44,7 @@ jobs:
       run: |
         aws ec2 associate-address \
           --instance-id ${{ steps.launch_instance.outputs.instance_id }} \
-          --allocation-id eipalloc-0abc1234567890def  # Replace with your Elastic IP Allocation ID
+          --allocation-id eipalloc-055cb23cb0ca36ed9  # Replace with your Elastic IP Allocation ID
 
     - name: Get Public IP of EC2 with Elastic IP
       id: get_ip
@@ -66,9 +66,14 @@ jobs:
         done
         echo "SSH is available!"
 
+    - name: Setup SSH Key and Run Commands on EC2
+      run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
     - name: Run commands on EC2 to install Docker, Nginx, Certbot, and set up Django WebApp
       run: |
-        ssh -o StrictHostKeyChecking=no -i ~/.ssh/MyKeyPair.pem ubuntu@${{ steps.get_ip.outputs.instance_ip }} << 'EOF'
+         ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ steps.get_ip.outputs.instance_ip }} << 'EOF'
           echo "Installing Docker on Ubuntu"
           sudo apt-get update -y
           sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
@@ -89,7 +94,7 @@ jobs:
           echo "Nginx installed"
 
           echo "Installing Certbot and Certbot Nginx plugin"
-          sudo apt-get install -y certbot python3-certbot-nginx
+          sudo apt-get install -y certbot python3-certbot-nginx git
           
           echo "Certbot and Nginx plugin installed"
 
@@ -99,23 +104,21 @@ jobs:
 
           # Clone the Django webapp private repository using the GitHub token
           echo "Cloning the Django private repository"
-          git clone https://${{ secrets.GH_TOKEN }}@github.com/YOUR_GITHUB_USERNAME/YOUR_DJANGO_REPO.git /home/ubuntu/django-webapp
-
-          # Change directory to the cloned repo and install requirements (if any)
-          cd /home/ubuntu/django-webapp
-          if [ -f "requirements.txt" ]; then
-            sudo apt-get install -y python3-pip
-            pip3 install -r requirements.txt
-          fi
-
+          git clone https://${{ secrets.GH_TOKEN }}@github.com/a9kit-web/GithubActions.git /home/ubuntu/django-webapp
           echo "Django repository setup completed"
+          
+          # Build Docker image and run container
+          echo "Building Docker image and running container"
+          cd /home/ubuntu/django-webapp
+          sudo docker build -t django-webapp .
+          sudo docker run -d -p 8000:8000 django-webapp
 
-          # Verify installations
-          docker --version
-          nginx -v
-          certbot --version
-        EOF
+          # Run Certbot to obtain SSL certificates
+          echo "Running Certbot to obtain SSL certificates"
+          sudo certbot --nginx -d a9kit.ddnsfree.com --non-interactive --agree-tos --email iamankitkharwade@gmail.com
+
+          EOF
       env:
-        PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    # Instance will not be terminated
+    
