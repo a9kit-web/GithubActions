@@ -1,4 +1,4 @@
-name: Django WebApp Deployment using Github Actions, AWS, Docker, Nginx and Certbot.
+name: Django WebApp Deployment using GitHub Actions, AWS, Docker, Nginx and Certbot.
 
 on:
   push:
