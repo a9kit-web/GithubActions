@@ -101,6 +101,10 @@ jobs:
           echo "Cloning the Django private repository"
           git clone https://${{ secrets.GH_TOKEN }}@github.com/a9kit-web/GithubActions.git /home/ubuntu/django-webapp
           echo "Django repository setup completed"
+
+          echo "Setting up Nginx configuration"
+          sudo cp /home/ubuntu/django-webapp/django-nginx.conf /etc/nginx/sites-available/django-webapp
+          sudo ln -s /etc/nginx/sites-available/django-webapp /etc/nginx/sites-enabled/
           
           # Build Docker image and run container
           echo "Building Docker image and running container"
@@ -112,7 +116,7 @@ jobs:
           echo "Running Certbot to obtain SSL certificates"
           sudo certbot --nginx -d a9kit.ddnsfree.com --non-interactive --agree-tos --email iamankitkharwade@gmail.com
 
-          EOF
+        EOF
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
