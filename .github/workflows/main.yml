@@ -36,13 +36,13 @@ jobs:
       run: |
         aws ec2 associate-address \
           --instance-id ${{ steps.launch_instance.outputs.instance_id }} \
-          --allocation-id eipalloc-055cb23cb0ca36ed9  # Replace with your Elastic IP Allocation ID
+          --allocation-id eipalloc-055cb23cb0ca36ed9
 
     - name: Get Public IP of EC2 with Elastic IP
       id: get_ip
       run: |
         INSTANCE_IP=$(aws ec2 describe-addresses \
-          --allocation-ids eipalloc-0abc1234567890def \  # Replace with your Elastic IP Allocation ID
+          --allocation-ids eipalloc-0abc1234567890def \
           --query 'Addresses[0].PublicIp' \
           --output text)
         
