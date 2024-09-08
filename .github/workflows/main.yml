@@ -1,0 +1,121 @@
+name: AWS EC2 Instance Management with Existing Elastic IP, Docker, Nginx, Certbot, and Django WebApp
+
+on:
+  push:
+    branches:
+      - none
+
+jobs:
+  create-and-run-ec2:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up AWS CLI
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET }}
+        aws-region: ap-south-1
+
+    - name: Launch EC2 instance (Ubuntu)
+      id: launch_instance
+      run: |
+        INSTANCE_ID=$(aws ec2 run-instances \
+          --image-id ami-0abcdef1234567890 \  # Update with the correct Ubuntu AMI ID
+          --instance-type t2.micro \
+          --key-name MyKeyPair \  # Replace with your key pair
+          --security-group-ids sg-0abc1234567890def \  # Replace with your security group ID
+          --subnet-id subnet-0abcdef1234567890 \
+          --associate-public-ip-address \
+          --query 'Instances[0].InstanceId' \
+          --output text)
+        
+        echo "Instance ID: $INSTANCE_ID"
+        echo "::set-output name=instance_id::$INSTANCE_ID"
+
+    - name: Wait for EC2 to be running
+      run: |
+        aws ec2 wait instance-running --instance-ids ${{ steps.launch_instance.outputs.instance_id }}
+
+    - name: Associate existing Elastic IP with EC2 instance
+      run: |
+        aws ec2 associate-address \
+          --instance-id ${{ steps.launch_instance.outputs.instance_id }} \
+          --allocation-id eipalloc-0abc1234567890def  # Replace with your Elastic IP Allocation ID
+
+    - name: Get Public IP of EC2 with Elastic IP
+      id: get_ip
+      run: |
+        INSTANCE_IP=$(aws ec2 describe-addresses \
+          --allocation-ids eipalloc-0abc1234567890def \  # Replace with your Elastic IP Allocation ID
+          --query 'Addresses[0].PublicIp' \
+          --output text)
+        
+        echo "EC2 Elastic IP: $INSTANCE_IP"
+        echo "::set-output name=instance_ip::$INSTANCE_IP"
+
+    - name: Wait for SSH service on EC2
+      run: |
+        until nc -z -v -w30 ${{ steps.get_ip.outputs.instance_ip }} 22
+        do
+          echo "Waiting for SSH to be available..."
+          sleep 5
+        done
+        echo "SSH is available!"
+
+    - name: Run commands on EC2 to install Docker, Nginx, Certbot, and set up Django WebApp
+      run: |
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/MyKeyPair.pem ubuntu@${{ steps.get_ip.outputs.instance_ip }} << 'EOF'
+          echo "Installing Docker on Ubuntu"
+          sudo apt-get update -y
+          sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+          sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          sudo apt-get update -y
+          sudo apt-get install -y docker-ce
+          sudo systemctl start docker
+          sudo usermod -aG docker ubuntu
+          
+          echo "Docker installed"
+
+          echo "Installing Nginx on Ubuntu"
+          sudo apt-get install -y nginx
+          sudo systemctl start nginx
+          sudo systemctl enable nginx
+          
+          echo "Nginx installed"
+
+          echo "Installing Certbot and Certbot Nginx plugin"
+          sudo apt-get install -y certbot python3-certbot-nginx
+          
+          echo "Certbot and Nginx plugin installed"
+
+          # Create the directory for the Django web app
+          echo "Creating django-webapp directory"
+          mkdir -p /home/ubuntu/django-webapp
+
+          # Clone the Django webapp private repository using the GitHub token
+          echo "Cloning the Django private repository"
+          git clone https://${{ secrets.GH_TOKEN }}@github.com/YOUR_GITHUB_USERNAME/YOUR_DJANGO_REPO.git /home/ubuntu/django-webapp
+
+          # Change directory to the cloned repo and install requirements (if any)
+          cd /home/ubuntu/django-webapp
+          if [ -f "requirements.txt" ]; then
+            sudo apt-get install -y python3-pip
+            pip3 install -r requirements.txt
+          fi
+
+          echo "Django repository setup completed"
+
+          # Verify installations
+          docker --version
+          nginx -v
+          certbot --version
+        EOF
+      env:
+        PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    # Instance will not be terminated
