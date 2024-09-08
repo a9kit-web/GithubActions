@@ -110,7 +110,7 @@ jobs:
 
           # Run Certbot to obtain SSL certificates
           echo "Running Certbot to obtain SSL certificates"
-          sudo certbot --nginx -d a9kit.ddnsfree.com --non-interactive --agree-tos --email iamankitkharwade@gmail.com
+          sudo certbot --nginx -d a9kit.freeddns.org --non-interactive --agree-tos --email iamankitkharwade@gmail.com
 
         EOF
       env:
