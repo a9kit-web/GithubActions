@@ -60,7 +60,7 @@ jobs:
 
     - name: Setup SSH Key and Run Commands on EC2
       run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
     - name: Run commands on EC2 to install Docker, Nginx, Certbot, and set up Django WebApp
